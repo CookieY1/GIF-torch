@@ -18,7 +18,7 @@ import config
 from lib_gnn_model.gat.gat_net_batch import GATNet
 from lib_gnn_model.gin.gin_net_batch import GINNet
 from lib_gnn_model.gcn.gcn_net_batch import GCNNet
-from lib_gnn_model.graphsage.graphsage_net import SageNet
+# from lib_gnn_model.graphsage.graphsage_net import SageNet
 from lib_gnn_model.sgc.sgc_net_batch import SGCNet
 from lib_gnn_model.gnn_base import GNNBase
 from parameter_parser import parameter_parser
@@ -41,10 +41,11 @@ class NodeClassifier(GNNBase):
     def determine_model(self, num_feats, num_classes):
         self.logger.info('target model: %s' % (self.args['target_model'],))
 
-        if self.target_model == 'SAGE':
-            self.lr, self.decay = 0.01, 0.001
-            return SageNet(num_feats, 256, num_classes)
-        elif self.target_model == 'GAT':
+        # if self.target_model == 'SAGE':
+            # self.lr, self.decay = 0.01, 0.001
+            # return SageNet(num_feats, 256, num_classes)
+
+        if self.target_model == 'GAT':
             self.lr, self.decay = 0.01, 0.001
             return GATNet(num_feats, num_classes)
         elif self.target_model == 'GCN':
@@ -103,7 +104,7 @@ class NodeClassifier(GNNBase):
             else:
                 out1 = self.model.forward_once(self.data)
                 out2 = self.model.forward_once_unlearn(self.data)
-            
+
             if self.args["unlearn_task"] == "edge":
                 mask1 = np.array([False] * out1.shape[0])
                 mask1[unlearn_info[2]] = True

@@ -45,8 +45,12 @@ if __name__ == "__main__":
     config_logger(logger_name)
     logging.info(logger_name)
 
+    os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
+    # print(args["num_threads"],args["cuda"])
     torch.set_num_threads(args["num_threads"])
+    # torch.cuda.device_count()
     torch.cuda.set_device(args["cuda"])
+
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args["cuda"])
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 

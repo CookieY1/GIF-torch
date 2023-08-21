@@ -9,6 +9,7 @@ class SGCNet(torch.nn.Module):
         self.num_layers = 2
 
         self.convs = torch.nn.ModuleList()
+        # self.convs.append(SGConvBatch(num_feats, num_classes, cached=False, add_self_loops=True, bias=False))
         self.convs.append(SGConvBatch(num_feats, 16, cached=False, add_self_loops=True, bias=False))
         self.convs.append(SGConvBatch(16, num_classes, cached=False, add_self_loops=True, bias=False))
 

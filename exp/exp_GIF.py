@@ -22,7 +22,7 @@ from exp.exp import Exp
 from lib_gnn_model.gat.gat_net_batch import GATNet
 from lib_gnn_model.gin.gin_net_batch import GINNet
 from lib_gnn_model.gcn.gcn_net_batch import GCNNet
-from lib_gnn_model.graphsage.graphsage_net import SageNet
+# from lib_gnn_model.graphsage.graphsage_net import SageNet
 from lib_gnn_model.sgc.sgc_net_batch import SGCNet
 from lib_gnn_model.node_classifier import NodeClassifier
 from lib_gnn_model.gnn_base import GNNBase
@@ -228,15 +228,20 @@ class ExpGraphInfluenceFunction(Exp):
             v = res_tuple[1]
         h_estimate = tuple(grad1 - grad2 for grad1, grad2 in zip(res_tuple[1], res_tuple[2]))
         for _ in range(iteration):
-
             model_params  = [p for p in self.target_model.model.parameters() if p.requires_grad]
             hv            = self.hvps(res_tuple[0], model_params, h_estimate)
             with torch.no_grad():
                 h_estimate    = [ v1 + (1-damp)*h_estimate1 - hv1/scale
                             for v1, h_estimate1, hv1 in zip(v, h_estimate, hv)]
 
+        # model_params = [p for p in self.target_model.model.parameters() if p.requires_grad]
+        # with torch.no_grad():
+        #     h_estimate = self.conjugate_gradient(res_tuple[0], model_params, h_estimate)
+
+        # Δθ
         params_change = [h_est / scale for h_est in h_estimate]
-        params_esti   = [p1 + p2 for p1, p2 in zip(params_change, model_params)]
+        params_esti = [p1 + p2 for p1, p2 in zip(params_change, model_params)]
+
 
         test_F1 = self.target_model.evaluate_unlearn_F1(params_esti)
         return time.time() - start_time, test_F1
@@ -247,4 +252,48 @@ class ExpGraphInfluenceFunction(Exp):
             element_product += torch.sum(grad_elem * v_elem)
         
         return_grads = grad(element_product,model_params,create_graph=True)
+        return return_grads
+
+
+    def conjugate_gradient(self, grad_all, model_param, v, cg_iters=10, residual_tol=1e-10):
+        """
+        Arguments:
+            grad_all: 图G训练梯度
+            model_param: 待更新参数
+            v: pytorch tensor的list，代表需要与hessian矩阵逆乘积的向量
+        Returns:
+            x: argmin_t时的t
+        """
+        x = tuple(torch.zeros_like(i) for i in v)
+        r = [torch.tensor(-i, requires_grad=True) for i in v]
+        p = [torch.tensor(i, requires_grad=True) for i in v]
+
+        rtr = sum(torch.sum(r_elem * r_elem) for r_elem in r)
+        # 开始迭代
+        for i in range(cg_iters):
+            z = self.hvp(grad_all, model_param, p)
+            v = rtr / sum(torch.sum(p_elem * z_elem) for p_elem, z_elem in zip(p, z))
+
+            x = tuple(x_elem + v * p_elem for x_elem, p_elem in zip(x, p))
+            r = tuple(r_elem - v * z_elem for r_elem, z_elem in zip(r, z))
+
+            newrtr = sum(torch.sum(r_elem * r_elem) for r_elem in r)
+
+            mu = newrtr / rtr
+            p = tuple(r_elem + mu * p_elem for r_elem, p_elem in zip(r, p))
+            rtr = newrtr
+            if rtr < residual_tol:
+                break
+
+            print("i = {}, v = {}, mu = {}".format(i, v, mu))
+            print("rtr = {}, newrtr = {}".format(rtr, newrtr))
+
+        return x
+
+    def hvp(self, grad_all, w, v):
+        # First backprop,原先需要grad利用loss和w来求，此处直接利用结果
+        first_grads = grad_all
+        # Second backprop
+        return_grads = grad(first_grads, w, retain_graph=True, grad_outputs=v)
+
         return return_grads
